@@ -1,32 +1,24 @@
 package com.dannycodev.bookstore;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import java.util.List;
 import java.util.Optional;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(org.mockito.junit.jupiter.MockitoExtension.class)
-public class BookServiceTest {
-
-    // Arrange (Preparar): Preparamos el entorno con mocks (when().thenReturn())
-    // Act (Ejecutar): Llamamos al método real de la clase que queremos probar
-    // Assert (Verificar): Comprobamos que el resultado sea el esperado
-    // (Extra) Verify: Comprobamos que se llamaron los métodos simulados como se esperaba
+@ExtendWith(MockitoExtension.class)
+@DisplayName("Pruebas unitarias para BookService")
+class BookServiceTest {
 
     @Mock
     private BookRepository bookRepository;
@@ -34,145 +26,213 @@ public class BookServiceTest {
     @InjectMocks
     private BookService bookService;
 
-    private Book book;
+    private Book libroValido;
 
     @BeforeEach
     void setUp() {
-        book = Book.builder()
+        libroValido = Book.builder()
                 .id(1L)
                 .title("1984")
                 .author("George Orwell")
                 .build();
     }
 
-    @Test
-    void guardarLibro_deberiaRetornarLibroGuardado() {
-        // Arrange
-        when(bookRepository.save(book)).thenReturn(book);
+    @Nested
+    @DisplayName("Guardar libro")
+    class GuardarLibro {
 
-        // Act
-        Book result = bookService.saveBook(book);
+        @Test
+        @DisplayName("Debe retornar el libro guardado")
+        void deberiaRetornarLibroGuardado() {
+            when(bookRepository.save(libroValido)).thenReturn(libroValido);
 
-        // Assert
-        assertNotNull(result);
-        assertEquals(book.getId(), result.getId());
-        assertEquals("1984", result.getTitle());
-        verify(bookRepository, times(1)).save(book);
+            Book result = bookService.saveBook(libroValido);
+
+            assertNotNull(result);
+            assertEquals("1984", result.getTitle());
+            verify(bookRepository).save(libroValido);
+        }
+
+        @Test
+        @DisplayName("Debe guardar título y autor sin espacios")
+        void deberiaGuardarTituloYAutorSinEspacios() {
+            Book libroConEspacios = Book.builder()
+                    .title(" 1984 ")
+                    .author(" George Orwell ")
+                    .build();
+
+            when(bookRepository.save(any())).thenReturn(libroConEspacios);
+            ArgumentCaptor<Book> captor = ArgumentCaptor.forClass(Book.class);
+
+            bookService.saveBook(libroConEspacios);
+            verify(bookRepository).save(captor.capture());
+
+            Book capturado = captor.getValue();
+            assertEquals("1984", capturado.getTitle().trim());
+            assertEquals("George Orwell", capturado.getAuthor().trim());
+        }
+
+        @ParameterizedTest(name = "Título inválido: \"{0}\"")
+        @ValueSource(strings = {"", " ", "\t"})
+        @DisplayName("Debe lanzar excepción si el título es inválido")
+        void deberiaLanzarExcepcionSiTituloInvalido(String titulo) {
+            Book libro = Book.builder().title(titulo).author("Autor válido").build();
+            assertThrows(IllegalArgumentException.class, () -> bookService.saveBook(libro));
+            verify(bookRepository, never()).save(any());
+        }
+
+        @ParameterizedTest(name = "Autor inválido: \"{0}\"")
+        @ValueSource(strings = {"", " ", "\t"})
+        @DisplayName("Debe lanzar excepción si el autor es inválido")
+        void deberiaLanzarExcepcionSiAutorInvalido(String autor) {
+            Book libro = Book.builder().title("Título válido").author(autor).build();
+            assertThrows(IllegalArgumentException.class, () -> bookService.saveBook(libro));
+            verify(bookRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Debe lanzar excepción si un libro de la lista es inválido")
+        void guardarListaConLibroInvalido_deberiaLanzarExcepcion() {
+            Book libroValido = Book.builder().title("Título válido").author("Autor válido").build();
+            Book libroInvalido = Book.builder().title("Título válido").author("").build();
+            List<Book> libros = List.of(libroValido, libroInvalido);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+                bookService.saveBooks(libros);
+            });
+
+            assertEquals("El libro debe tener un autor válido", ex.getMessage());
+            verify(bookRepository, never()).saveAll(any());
+        }
+
+        @Test
+        @DisplayName("Debe guardar una lista de libros válidos")
+        void guardarListaDeLibrosValidos_deberiaGuardarTodos() {
+            List<Book> libros = List.of(
+                    new Book(null, "Libro 1", "Autor 1"),
+                    new Book(null, "Libro 2", "Autor 2")
+            );
+
+            when(bookRepository.saveAll(libros)).thenReturn(libros);
+            List<Book> resultado = bookService.saveBooks(libros);
+
+            assertEquals(2, resultado.size());
+            verify(bookRepository).saveAll(libros);
+        }
     }
 
-    @Test
-    void guardarListaDeLibrosValidos_deberiaGuardarTodos() {
-        List<Book> libros = List.of(
-                new Book(null, "Libro 1", "Autor 1"),
-                new Book(null, "Libro 2", "Autor 2")
-        );
+    @Nested
+    @DisplayName("Obtener libros")
+    class ObtenerLibros {
 
-        when(bookRepository.saveAll(libros)).thenReturn(libros);
+        @Test
+        void deberiaRetornarListaDeLibros() {
+            when(bookRepository.findAll()).thenReturn(List.of(libroValido));
+            List<Book> result = bookService.getAllBooks();
 
-        List<Book> resultado = bookService.saveBooks(libros);
+            assertEquals(1, result.size());
+            assertEquals("1984", result.get(0).getTitle());
+            verify(bookRepository).findAll();
+        }
 
-        assertEquals(2, resultado.size());
-        verify(bookRepository).saveAll(libros);
+        @Test
+        void deberiaRetornarLibroPorIdExistente() {
+            when(bookRepository.findById(1L)).thenReturn(Optional.of(libroValido));
+            Optional<Book> result = bookService.getBookById(1L);
+
+            assertTrue(result.isPresent());
+            assertEquals("George Orwell", result.get().getAuthor());
+        }
+
+        @Test
+        void deberiaRetornarVacioSiLibroNoExiste() {
+            when(bookRepository.findById(2L)).thenReturn(Optional.empty());
+            Optional<Book> result = bookService.getBookById(2L);
+
+            assertFalse(result.isPresent());
+            verify(bookRepository).findById(2L);
+        }
     }
 
-    @Test
-    void guardarLibro_sinTitulo_deberiaLanzarException(){
-        Book libroSinTitulo = Book.builder()
-                .id(2L)
-                .title("")
-                .author("Autor válido")
-                .build();
+    @Nested
+    @DisplayName("Eliminar libro")
+    class EliminarLibro {
 
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> bookService.saveBook(libroSinTitulo)
-        );
+        @Test
+        void deberiaEliminarLibroExistente() {
+            when(bookRepository.existsById(1L)).thenReturn(true);
+            bookService.deleteBookById(1L);
+            verify(bookRepository).deleteById(1L);
+        }
 
-        assertEquals("El libro debe tener un título válido", exception.getMessage());
-        verify(bookRepository, never()).save(any());
+        @Test
+        void deberiaLanzarExcepcionSiLibroNoExiste() {
+            when(bookRepository.existsById(99L)).thenReturn(false);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+                bookService.deleteBookById(99L);
+            });
+
+            assertEquals("El libro no existe", ex.getMessage());
+            verify(bookRepository, never()).deleteById(any());
+        }
     }
 
-    @Test
-    void guardarLibro_sinAutor_deberiaLanzarException(){
-        Book libroSinAutor = Book.builder()
-                .id(2L)
-                .title("Título válido")
-                .author(null)
-                .build();
+    @Nested
+    @DisplayName("Actualizar libro")
+    class ActualizarLibro {
 
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> bookService.saveBook(libroSinAutor)
-        );
+        @Test
+        void deberiaActualizarCamposCorrectamente() {
+            Book nuevosDatos = Book.builder()
+                    .title("Animal Farm")
+                    .author("George Orwell")
+                    .build();
 
-        assertEquals("El libro debe tener un autor válido", exception.getMessage());
-        verify(bookRepository, never()).save(any());
-    }
+            when(bookRepository.findById(1L)).thenReturn(Optional.of(libroValido));
+            when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-    @Test
-    void guardarListaConLibroInvalido_deberiaLanzarExcepcion() {
-        // Arrange
-        Book libroValido = Book.builder()
-                .id(1L)
-                .title("Título valido")
-                .author("Autor válido")
-                .build();
-        Book libroInvalido = Book.builder()
-                .id(1L)
-                .title("Título valido")
-                .author("")
-                .build();
+            Book actualizado = bookService.updateBook(1L, nuevosDatos);
 
-        List<Book> libros = List.of(libroValido, libroInvalido);
-        // Act & Assert
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
-            bookService.saveBooks(libros);
-        });
+            assertEquals("Animal Farm", actualizado.getTitle());
+            assertEquals("George Orwell", actualizado.getAuthor());
 
-        assertEquals("El libro debe tener un autor válido", ex.getMessage());
-        // Verificamos que NO se haya llamado al repositorio
-        verify(bookRepository, never()).saveAll(any());
-    }
+            verify(bookRepository).findById(1L);
+            verify(bookRepository).save(libroValido);
+        }
 
-    @Test
-    void obtenerTodosLosLibros_deberiaRetornarListaDeLibros() {
-        // Arrange
-        List<Book> books = List.of(book);
-        when(bookRepository.findAll()).thenReturn(books);
+        @Test
+        void deberiaLanzarExcepcionSiLibroNoExiste() {
+            Book nuevosDatos = Book.builder()
+                    .title("Nuevo Título")
+                    .author("Nuevo Autor")
+                    .build();
 
-        // Act
-        List<Book> result = bookService.getAllBooks();
+            when(bookRepository.findById(99L)).thenReturn(Optional.empty());
 
-        // Assert
-        assertEquals(1, result.size());
-        assertEquals("1984", result.get(0).getTitle());
-        verify(bookRepository).findAll();
-    }
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+                bookService.updateBook(99L, nuevosDatos);
+            });
 
-    @Test
-    void obtenerLibroPorId_existente_deberiaRetornarLibro() {
-        // Arrange
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+            assertEquals("No se puede actualizar: el libro no existe", ex.getMessage());
+            verify(bookRepository, never()).save(any());
+        }
 
-        // Act
-        Optional<Book> result = bookService.getBookById(1L);
+        @Test
+        void deberiaLanzarExcepcionSiTituloInvalido() {
+            Book nuevosDatos = Book.builder()
+                    .title("")
+                    .author("Autor válido")
+                    .build();
 
-        // Assert
-        assertTrue(result.isPresent());
-        assertEquals("George Orwell", result.get().getAuthor());
-        verify(bookRepository).findById(1L);
-    }
+            when(bookRepository.findById(1L)).thenReturn(Optional.of(libroValido));
 
-    @Test
-    void obtenerLibroPorId_inexistente_deberiaRetornarVacio() {
-        // Arrange
-        when(bookRepository.findById(2L)).thenReturn(Optional.empty());
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+                bookService.updateBook(1L, nuevosDatos);
+            });
 
-        // Act
-        Optional<Book> result = bookService.getBookById(2L);
-
-        // Assert
-        assertFalse(result.isPresent());
-        verify(bookRepository).findById(2L);
+            assertEquals("El libro debe tener un título válido", ex.getMessage());
+            verify(bookRepository, never()).save(any());
+        }
     }
 }

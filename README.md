@@ -1,6 +1,6 @@
 # 🧪 Guía práctica de testing unitario en Spring Boot con JUnit 5 y Mockito
 
-Este proyecto es una práctica básica de testing con **JUnit 5** y **Mockito** usando Spring Boot. Simula una gestión de libros (`BookService`) para aprender a probar servicios de forma efectiva.
+Este proyecto es una práctica completa de testing unitario con **JUnit 5** y **Mockito** usando Spring Boot. Simula una gestión de libros (`BookService`) para aprender a probar servicios de forma efectiva, con buenas prácticas como organización por `@Nested`, parametrización, captura de argumentos y verificación de interacciones.
 
 ---
 
@@ -18,66 +18,100 @@ Agrega estas dependencias desde Spring Initializr:
 
 ## ✅ Conceptos clave
 
-### 🎯 Anotaciones de prueba más importantes
+### 🎯 Anotaciones y herramientas más importantes
 
-| Anotación | Propósito |
-|----------|-----------|
-| `@Mock` | Crea una dependencia simulada |
-| `@InjectMocks` | Inyecta los mocks en la clase a testear |
-| `@ExtendWith(MockitoExtension.class)` | Habilita Mockito con JUnit 5 |
-| `@BeforeEach` | Ejecuta código antes de cada test |
-| `@Test` | Declara un método de prueba |
-| `assertThrows` | Verifica que se lance una excepción |
-| `verify` | Verifica si un método fue llamado |
+| Anotación / Herramienta               | Propósito                                                |
+|--------------------------------------|-----------------------------------------------------------|
+| `@Mock`, `@InjectMocks`              | Simulación de dependencias y su inyección                |
+| `@ExtendWith(MockitoExtension.class)`| Habilita Mockito con JUnit 5                             |
+| `@BeforeEach`                        | Prepara objetos antes de cada test                       |
+| `@Test`, `@ParameterizedTest`        | Define métodos de prueba (con o sin parámetros)          |
+| `@ValueSource`                       | Lista de valores para tests parametrizados               |
+| `@DisplayName`                       | Descripciones legibles para consola y reportes           |
+| `@Nested`                            | Agrupa tests relacionados en una estructura clara        |
+| `ArgumentCaptor`                     | Captura el objeto realmente pasado al mock               |
+| `verify`, `assertThrows`, `assertEquals` | Verifican comportamiento esperado                    |
 
 ---
 
 ## 🧪 Criterios para diseñar buenos tests
 
-### 1. ✅ Casos felices (funcionamiento normal)
-✔️ Probar que funciona bien con datos válidos.  
-Ej: guardar un libro con autor y título.
+1. ✅ **Casos felices (funcionamiento esperado)**
+   - Probar entradas válidas y comportamiento correcto
 
-### 2. ⚠️ Entradas inválidas
-❌ Probar que se lanza una excepción si los datos son incorrectos.  
-Ej: título o autor nulos o vacíos.
+2. ⚠️ **Entradas inválidas**
+   - Verificar que se lanzan excepciones con entradas incorrectas (nulos, vacíos)
 
-### 3. 🚫 Casos límite (edge cases)
-⚙️ Probar listas vacías, campos muy largos, ID nulos, etc.
+3. 🚫 **Casos límite**
+   - Pruebas con listas vacías, ID inexistentes, campos con solo espacios, etc.
 
-### 4. 🔁 Fallos en dependencias
-💥 Simular que el repositorio lanza errores o devuelve datos inconsistentes.
+4. 🔁 **Errores en dependencias**
+   - Simular fallos en el repositorio con `thenThrow(...)`
 
-### 5. 📞 Verificaciones
-🔍 Confirmar que se llaman correctamente los métodos simulados.  
-Ej: `verify(bookRepository).save(libro);`
+5. 📞 **Verificaciones y capturas**
+   - Confirmar que los mocks se usan correctamente y capturar argumentos si es necesario
 
 ---
 
-## 🧠 Regla de oro
+## 📐 Organización del test (estructura profesional)
 
-❓ "¿Qué podría salir mal aquí?"  
-Convierte cada respuesta en un test.
+El test `BookServiceTest` está organizado por métodos de servicio usando `@Nested`, lo que mejora la legibilidad:
+
+BookServiceTest
+├── GuardarLibro
+│   ├── deberiaRetornarLibroGuardado
+│   ├── deberiaGuardarTituloYAutorSinEspacios (con ArgumentCaptor)
+│   ├── deberiaLanzarExcepcionSiTituloInvalido (parametrizado)
+│   ├── deberiaLanzarExcepcionSiAutorInvalido (parametrizado)
+│   ├── guardarListaConLibroInvalido_deberiaLanzarExcepcion
+│   └── guardarListaDeLibrosValidos_deberiaGuardarTodos
+├── ObtenerLibros
+│   ├── deberiaRetornarListaDeLibros
+│   ├── deberiaRetornarLibroPorIdExistente
+│   └── deberiaRetornarVacioSiLibroNoExiste
+├── EliminarLibro
+│   ├── deberiaEliminarLibroExistente
+│   └── deberiaLanzarExcepcionSiLibroNoExiste
+├── ActualizarLibro
+│   ├── deberiaActualizarCamposCorrectamente
+│   ├── deberiaLanzarExcepcionSiLibroNoExiste
+│   └── deberiaLanzarExcepcionSiTituloInvalido
 
 ---
 
 ## ✍️ Convención sugerida para nombres de test
 
+[accion]_deberia[resultado]_si[condicion]
+
+
 Ejemplos:
-- `guardarLibro_deberíaLanzarExcepcion_siTituloEsInvalido`
-- `buscarLibroPorId_deberíaRetornarLibro_siExiste`
+- `guardarLibro_deberiaLanzarExcepcion_siTituloEsInvalido`
+- `eliminarLibro_deberiaLanzarExcepcion_siNoExiste`
 
 ---
 
-## 🚀 Siguientes pasos para practicar
+## 🚀 Funcionalidades cubiertas
 
-- Implementar y testear `eliminarLibroPorId(Long id)`
-- Simular errores con `when(...).thenThrow(...)`
-- Usar `ArgumentCaptor` para verificar datos pasados al mock
-- Escribir tests para controladores con `@WebMvcTest`
+- [x] Guardar libro con validaciones
+- [x] Guardar lista de libros
+- [x] Obtener todos / por ID
+- [x] Eliminar por ID con verificación de existencia
+- [x] Actualizar libro parcialmente con validaciones
+- [x] Verificación de argumentos con `ArgumentCaptor`
+- [x] Organización con `@Nested` y nombres claros con `@DisplayName`
+- [x] Uso de `@ParameterizedTest` para validar múltiples entradas
+
+---
+
+## ✅ Este proyecto es ideal para:
+
+- Practicar testing unitario puro con Spring Boot
+- Usar como plantilla en nuevos proyectos
+- Refactorizar pruebas existentes aplicando buenas prácticas
 
 ---
 
 ## 👨‍💻 Autor
-Este archivo fue generado como parte de una práctica guiada para aprender a testear servicios en Spring Boot desde cero.
+
+Este archivo fue generado como parte de una práctica guiada para aprender a testear servicios en Spring Boot aplicando técnicas profesionales y cobertura completa de casos.
 
