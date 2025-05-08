@@ -57,6 +57,7 @@ Agrega estas dependencias desde Spring Initializr:
 
 El test `BookServiceTest` está organizado por métodos de servicio usando `@Nested`, lo que mejora la legibilidad:
 
+```text
 BookServiceTest
 ├── GuardarLibro
 │   ├── deberiaRetornarLibroGuardado
@@ -76,7 +77,7 @@ BookServiceTest
 │   ├── deberiaActualizarCamposCorrectamente
 │   ├── deberiaLanzarExcepcionSiLibroNoExiste
 │   └── deberiaLanzarExcepcionSiTituloInvalido
-
+```
 ---
 
 ## ✍️ Convención sugerida para nombres de test
@@ -100,6 +101,58 @@ Ejemplos:
 - [x] Verificación de argumentos con `ArgumentCaptor`
 - [x] Organización con `@Nested` y nombres claros con `@DisplayName`
 - [x] Uso de `@ParameterizedTest` para validar múltiples entradas
+
+---
+
+## 🔁 Versión alternativa con AssertJ
+
+Este proyecto incluye una clase adicional de pruebas llamada:
+BookServiceAssertJTest.java
+
+---
+
+### 🎯 ¿Qué hace esta clase?
+
+- Replica los mismos tests de `BookServiceTest`, pero usando la librería **[AssertJ](https://assertj.github.io/doc/)**
+- Sustituye las aserciones tradicionales de JUnit 5 (`assertEquals`, `assertTrue`, etc.) por una sintaxis más fluida como:
+
+```java
+assertThat(valor).isEqualTo("esperado");
+assertThat(lista).hasSize(2).contains("Libro 1", "Libro 2");
+assertThat(optional).isPresent().contains(libroValido);
+```
+
+---
+
+### ✅ ¿Por qué usar AssertJ?
+
+| Ventaja                         | Descripción                                                        |
+| ------------------------------- | ------------------------------------------------------------------ |
+| ✅ Sintaxis fluida               | Más expresiva y fácil de leer que los `assertEquals` tradicionales |
+| ✅ Aserciones avanzadas          | Asertivos para colecciones, opcionales, strings, fechas, etc.      |
+| ✅ Mejor legibilidad en reportes | Mensajes de error más claros y detallados si un test falla         |
+
+
+---
+
+### 👨‍🏫 ¿Cuándo usar esta clase?
+
+Para comparar AssertJ con JUnit puro
+
+Para adoptar un estilo de testing más moderno
+
+Como plantilla para futuros proyectos que usen AssertJ
+
+---
+
+### 🛠️ Dependencia necesaria en pom.xml
+
+<dependency>
+  <groupId>org.assertj</groupId>
+  <artifactId>assertj-core</artifactId>
+  <version>3.25.3</version>
+  <scope>test</scope>
+</dependency>
 
 ---
 
